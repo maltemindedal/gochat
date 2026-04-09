@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -19,22 +20,22 @@ type Hub struct {
 	unregister chan *Client
 	mutex      sync.RWMutex
 	wg         sync.WaitGroup
-	ctx        context.Context
-	cancel     context.CancelFunc
+	shutdown   chan struct{}
+	shutdownMu sync.Once
 	done       chan struct{}
+	stateMu    sync.Mutex
+	started    bool
 }
 
 // NewHub creates and initializes a new Hub instance with all necessary channels
 // and client map. The returned Hub is ready to manage WebSocket connections.
 func NewHub() *Hub {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &Hub{
 		clients:    make(map[*Client]bool),
 		broadcast:  make(chan BroadcastMessage),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		ctx:        ctx,
-		cancel:     cancel,
+		shutdown:   make(chan struct{}),
 		done:       make(chan struct{}),
 	}
 }
@@ -55,6 +56,40 @@ func (h *Hub) GetUnregisterChan() chan<- *Client {
 // This channel is write-only from the caller's perspective.
 func (h *Hub) GetBroadcastChan() chan<- BroadcastMessage {
 	return h.broadcast
+}
+
+// Start launches the hub event loop in a goroutine if it is not already running.
+func (h *Hub) Start() {
+	go h.Run()
+}
+
+// IsStopped reports whether the hub event loop has exited.
+func (h *Hub) IsStopped() bool {
+	select {
+	case <-h.done:
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *Hub) markStarted() bool {
+	h.stateMu.Lock()
+	defer h.stateMu.Unlock()
+
+	if h.started {
+		return false
+	}
+
+	h.started = true
+	return true
+}
+
+func (h *Hub) hasStarted() bool {
+	h.stateMu.Lock()
+	defer h.stateMu.Unlock()
+
+	return h.started
 }
 
 func (h *Hub) safeSend(client *Client, message []byte) bool {
@@ -87,11 +122,15 @@ func (h *Hub) safeSend(client *Client, message []byte) bool {
 // and message broadcasting. This method should be called in a separate goroutine
 // as it runs indefinitely.
 func (h *Hub) Run() {
+	if !h.markStarted() {
+		return
+	}
+
 	defer close(h.done)
 
 	for {
 		select {
-		case <-h.ctx.Done():
+		case <-h.shutdown:
 			h.shutdownClients()
 			return
 
@@ -119,6 +158,11 @@ func (h *Hub) Run() {
 			}()
 
 		case client := <-h.unregister:
+			if client == nil {
+				log.Printf("Received nil client unregistration; skipping")
+				continue
+			}
+
 			h.mutex.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
@@ -137,8 +181,6 @@ func (h *Hub) Run() {
 		}
 	}
 }
-
-var hub = NewHub()
 
 // handleBroadcast processes a broadcast message and sends it to all clients except the sender
 func (h *Hub) handleBroadcast(broadcastMsg BroadcastMessage) {
@@ -244,13 +286,27 @@ func (h *Hub) shutdownClients() {
 // It returns after all client connections are closed and goroutines have finished,
 // or when the timeout is reached.
 func (h *Hub) Shutdown(timeout time.Duration) error {
+	if !h.hasStarted() {
+		return nil
+	}
+
 	log.Println("Initiating hub shutdown...")
 
 	// Signal shutdown
-	h.cancel()
+	h.shutdownMu.Do(func() {
+		close(h.shutdown)
+	})
+
+	runLoopTimer := time.NewTimer(timeout)
+	defer runLoopTimer.Stop()
 
 	// Wait for Run() to complete
-	<-h.done
+	select {
+	case <-h.done:
+	case <-runLoopTimer.C:
+		log.Println("Hub shutdown timeout reached while waiting for the event loop to stop")
+		return fmt.Errorf("hub event loop shutdown timed out: %w", context.DeadlineExceeded)
+	}
 
 	// Wait for all client goroutines to finish with timeout
 	done := make(chan struct{})
@@ -259,12 +315,15 @@ func (h *Hub) Shutdown(timeout time.Duration) error {
 		close(done)
 	}()
 
+	clientTimer := time.NewTimer(timeout)
+	defer clientTimer.Stop()
+
 	select {
 	case <-done:
 		log.Println("Hub shutdown completed successfully")
 		return nil
-	case <-time.After(timeout):
+	case <-clientTimer.C:
 		log.Println("Hub shutdown timeout reached, some goroutines may still be running")
-		return context.DeadlineExceeded
+		return fmt.Errorf("hub client shutdown timed out: %w", context.DeadlineExceeded)
 	}
 }

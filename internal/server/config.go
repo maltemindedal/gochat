@@ -3,6 +3,7 @@
 package server
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -52,6 +53,8 @@ func defaultConfig() Config {
 func sanitizeConfig(cfg Config) Config {
 	if cfg.Port == "" {
 		cfg.Port = ":8080"
+	} else if !strings.Contains(cfg.Port, ":") {
+		cfg.Port = ":" + cfg.Port
 	}
 
 	if cfg.MaxMessageSize <= 0 {
@@ -134,17 +137,29 @@ func NewConfigFromEnv() *Config {
 
 	// Load MAX_MESSAGE_SIZE
 	if maxSize := os.Getenv("MAX_MESSAGE_SIZE"); maxSize != "" {
-		cfg.MaxMessageSize = parseMaxMessageSize(maxSize, cfg.MaxMessageSize)
+		if parsedSize, ok := parseMaxMessageSize(maxSize); ok {
+			cfg.MaxMessageSize = parsedSize
+		} else {
+			log.Print("Invalid MAX_MESSAGE_SIZE provided; using default value")
+		}
 	}
 
 	// Load RATE_LIMIT_BURST
 	if burst := os.Getenv("RATE_LIMIT_BURST"); burst != "" {
-		cfg.RateLimit.Burst = parseIntValue(burst, cfg.RateLimit.Burst)
+		if parsedBurst, ok := parseIntValue(burst); ok {
+			cfg.RateLimit.Burst = parsedBurst
+		} else {
+			log.Print("Invalid RATE_LIMIT_BURST provided; using default value")
+		}
 	}
 
 	// Load RATE_LIMIT_REFILL_INTERVAL
 	if interval := os.Getenv("RATE_LIMIT_REFILL_INTERVAL"); interval != "" {
-		cfg.RateLimit.RefillInterval = parseRefillInterval(interval, cfg.RateLimit.RefillInterval)
+		if parsedInterval, ok := parseRefillInterval(interval); ok {
+			cfg.RateLimit.RefillInterval = parsedInterval
+		} else {
+			log.Print("Invalid RATE_LIMIT_REFILL_INTERVAL provided; using default value")
+		}
 	}
 
 	return &cfg
@@ -158,23 +173,29 @@ func parseOrigins(origins string) []string {
 	return parts
 }
 
-func parseMaxMessageSize(value string, defaultValue int64) int64 {
-	if size, err := strconv.ParseInt(value, 10, 64); err == nil && size > 0 {
-		return size
+func parseMaxMessageSize(value string) (int64, bool) {
+	size, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || size <= 0 {
+		return 0, false
 	}
-	return defaultValue
+
+	return size, true
 }
 
-func parseIntValue(value string, defaultValue int) int {
-	if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-		return parsed
+func parseIntValue(value string) (int, bool) {
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, false
 	}
-	return defaultValue
+
+	return parsed, true
 }
 
-func parseRefillInterval(value string, defaultValue time.Duration) time.Duration {
-	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
-		return time.Duration(seconds) * time.Second
+func parseRefillInterval(value string) (time.Duration, bool) {
+	seconds, err := strconv.Atoi(value)
+	if err != nil || seconds <= 0 {
+		return 0, false
 	}
-	return defaultValue
+
+	return time.Duration(seconds) * time.Second, true
 }

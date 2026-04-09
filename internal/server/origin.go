@@ -81,6 +81,6 @@ func checkOrigin(r *http.Request) bool {
 		return true
 	}
 
-	log.Printf("Blocked WebSocket connection from disallowed origin: %q", r.Header.Get("Origin"))
+	log.Print("Blocked WebSocket connection from disallowed origin")
 	return false
 }

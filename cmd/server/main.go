@@ -44,12 +44,15 @@ func main() {
 	// Start HTTP server in a goroutine
 	go func() {
 		log.Printf("Server starting on port %s", config.Port)
-		serverErrors <- server.StartServer(httpServer)
+		if err := server.StartServer(httpServer); err != nil {
+			serverErrors <- err
+		}
 	}()
 
 	// Channel to listen for OS interrupt signals
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(shutdown)
 
 	// Block until we receive a signal or an error
 	select {
@@ -104,6 +107,6 @@ func gracefulShutdown(httpServer *http.Server) error {
 	case err := <-shutdownComplete:
 		return err
 	case <-ctx.Done():
-		return fmt.Errorf("shutdown timeout exceeded")
+		return fmt.Errorf("shutdown timeout exceeded: %w", ctx.Err())
 	}
 }

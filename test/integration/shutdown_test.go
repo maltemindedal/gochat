@@ -48,16 +48,21 @@ func TestGracefulShutdownWithClients(t *testing.T) {
 }
 
 // setupShutdownTestServer creates and starts a test server for shutdown testing
-func setupShutdownTestServer(_ *testing.T, port string) (*server.Hub, *http.Server) {
+func setupShutdownTestServer(t *testing.T, port string) (*server.Hub, *http.Server) {
+	t.Helper()
+	t.Cleanup(func() {
+		server.SetConfig(nil)
+	})
+
 	config := server.NewConfig()
 	config.Port = port
 	config.AllowedOrigins = []string{testOriginURL, "http://localhost" + port}
 	server.SetConfig(config)
 
 	hub := server.NewHub()
-	go hub.Run()
+	hub.Start()
 
-	mux := server.SetupRoutes()
+	mux := server.SetupRoutesWithHub(hub)
 	httpServer := server.CreateServer(config.Port, mux)
 
 	go func() {
@@ -165,16 +170,21 @@ func TestShutdownWithActiveMessages(t *testing.T) {
 }
 
 // setupMessageTestServer creates and starts a test server for message testing
-func setupMessageTestServer(_ *testing.T) (*server.Hub, *http.Server) {
+func setupMessageTestServer(t *testing.T) (*server.Hub, *http.Server) {
+	t.Helper()
+	t.Cleanup(func() {
+		server.SetConfig(nil)
+	})
+
 	config := server.NewConfig()
 	config.Port = ":18083"
 	config.AllowedOrigins = []string{testOriginURL, "http://localhost:18083"}
 	server.SetConfig(config)
 
 	hub := server.NewHub()
-	go hub.Run()
+	hub.Start()
 
-	mux := server.SetupRoutes()
+	mux := server.SetupRoutesWithHub(hub)
 	httpServer := server.CreateServer(config.Port, mux)
 
 	go func() {
@@ -340,10 +350,10 @@ func TestNoClientsShutdown(t *testing.T) {
 	server.SetConfig(config)
 
 	hub := server.NewHub()
-	go hub.Run()
+	hub.Start()
 
 	// Setup routes AFTER config to ensure origin validation is configured
-	mux := server.SetupRoutes()
+	mux := server.SetupRoutesWithHub(hub)
 	httpServer := server.CreateServer(config.Port, mux)
 
 	go func() {

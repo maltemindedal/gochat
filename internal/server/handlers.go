@@ -16,38 +16,69 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     checkOrigin,
 }
 
+func webSocketHandlerForHub(h *Hub) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed. WebSocket endpoint only accepts GET requests.", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if err := r.Context().Err(); err != nil {
+			log.Print("WebSocket request cancelled before upgrade")
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade failed: %v", err)
+			return
+		}
+
+		client := NewClient(conn, h, r.RemoteAddr)
+
+		select {
+		case client.hub.register <- client:
+		case <-client.hub.shutdown:
+			log.Print("Rejected WebSocket client because the hub is shutting down")
+			if closeErr := conn.Close(); closeErr != nil && !isExpectedCloseError(closeErr) {
+				log.Printf("Error closing rejected WebSocket connection: %v", closeErr)
+			}
+		case <-r.Context().Done():
+			if closeErr := conn.Close(); closeErr != nil && !isExpectedCloseError(closeErr) {
+				log.Printf("Error closing cancelled WebSocket connection: %v", closeErr)
+			}
+		}
+	}
+}
+
 // WebSocketHandler handles WebSocket upgrade requests and manages client connections.
 // It validates that the request uses the GET method, upgrades the HTTP connection
 // to WebSocket, creates a new Client instance, and starts the client's read/write pumps.
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed. WebSocket endpoint only accepts GET requests.", http.StatusMethodNotAllowed)
-		return
-	}
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
-		return
-	}
-
-	client := NewClient(conn, hub, r.RemoteAddr)
-
-	// Register the client with the hub; the hub will launch the pump goroutines.
-	client.hub.register <- client
+	webSocketHandlerForHub(GetHub()).ServeHTTP(w, r)
 }
 
 // HealthHandler provides a simple health check endpoint that returns server status.
 // It responds with a plain text message indicating the server is running.
-func HealthHandler(w http.ResponseWriter, _ *http.Request) {
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.Context().Err(); err != nil {
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain")
-	_, _ = fmt.Fprintf(w, "GoChat server is running!")
+	if _, err := fmt.Fprint(w, "GoChat server is running!"); err != nil {
+		log.Printf("Error writing health response: %v", err)
+	}
 }
 
 // TestPageHandler serves an HTML test page for testing WebSocket functionality.
 // It provides a simple web interface to connect to the WebSocket endpoint,
 // send messages, and view real-time chat communication.
-func TestPageHandler(w http.ResponseWriter, _ *http.Request) {
+func TestPageHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.Context().Err(); err != nil {
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 	html := `<!DOCTYPE html>
 <html>

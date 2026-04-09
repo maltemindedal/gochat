@@ -138,13 +138,24 @@ func (c *Client) processMessage(rawMessage []byte) bool {
 	}
 
 	log.Printf("Received message from %s: %s", c.addr, string(normalizedMessage))
-	c.hub.broadcast <- BroadcastMessage{Sender: c, Payload: normalizedMessage}
+
+	select {
+	case c.hub.broadcast <- BroadcastMessage{Sender: c, Payload: normalizedMessage}:
+	case <-c.hub.shutdown:
+		log.Printf("Skipping broadcast from %s because the hub is shutting down", c.addr)
+		return false
+	}
+
 	return true
 }
 
 // cleanupReadPump handles cleanup tasks when readPump exits
 func (c *Client) cleanupReadPump() {
-	c.hub.unregister <- c
+	select {
+	case c.hub.unregister <- c:
+	case <-c.hub.shutdown:
+	}
+
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			if !isExpectedCloseError(err) {
@@ -201,6 +212,8 @@ func (c *Client) processWriteEvent(ticker *time.Ticker) bool {
 		return c.handleMessage(message, ok)
 	case <-ticker.C:
 		return c.handlePing()
+	case <-c.hub.shutdown:
+		return false
 	}
 }
 
@@ -295,7 +308,13 @@ func (c *Client) writeQueuedMessage(w io.WriteCloser) bool {
 		log.Printf("Error writing newline to %s: %v", c.addr, err)
 		return false
 	}
-	if _, err := w.Write(<-c.send); err != nil {
+
+	queuedMessage, ok := <-c.send
+	if !ok {
+		return false
+	}
+
+	if _, err := w.Write(queuedMessage); err != nil {
 		log.Printf("Error writing queued message to %s: %v", c.addr, err)
 		return false
 	}
@@ -321,7 +340,9 @@ func (c *Client) handlePing() bool {
 		return false
 	}
 	if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-		log.Printf("Error writing ping message to %s: %v", c.addr, err)
+		if !isExpectedCloseError(err) {
+			log.Printf("Error writing ping message to %s: %v", c.addr, err)
+		}
 		return false
 	}
 	return true
