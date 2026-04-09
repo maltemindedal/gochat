@@ -18,7 +18,7 @@ This guide will help you get GoChat up and running on your system.
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/Tyrowin/gochat.git
+   git clone https://github.com/maltemindedal/gochat.git
    cd gochat
    ```
 
@@ -90,12 +90,10 @@ Hub started - ready to accept connections
 Once the server is running, you can access:
 
 - **`GET /`** - Health check endpoint
-
   - Returns: "GoChat server is running!"
   - Use this to verify the server is operational
 
 - **`GET /ws`** - WebSocket connection endpoint
-
   - This is where clients connect for real-time chat
   - See [API Documentation](API.md) for details
 

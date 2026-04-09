@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Trigger Go Report Card refresh
         run: |
-          REFRESH_URL="https://goreportcard.com/report/github.com/Tyrowin/gochat?refresh=1"
+          REFRESH_URL="https://goreportcard.com/report/github.com/maltemindedal/gochat?refresh=1"
           echo "Requesting refresh: ${REFRESH_URL}"
           curl -sSf "${REFRESH_URL}" >/dev/null
           echo "Go Report Card refresh request completed."

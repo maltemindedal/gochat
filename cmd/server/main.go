@@ -26,7 +26,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Tyrowin/gochat/internal/server"
+	"github.com/maltemindedal/gochat/internal/server"
 )
 
 func main() {

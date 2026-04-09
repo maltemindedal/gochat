@@ -286,7 +286,7 @@ AllowedOrigins: []string{
 [Unit]
 Description=GoChat WebSocket Server
 After=network.target
-Documentation=https://github.com/Tyrowin/gochat
+Documentation=https://github.com/maltemindedal/gochat
 
 [Service]
 Type=simple
@@ -451,15 +451,7 @@ services:
       - RATE_LIMIT_REFILL_INTERVAL=1
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/",
-        ]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
       interval: 30s
       timeout: 3s
       start_period: 5s

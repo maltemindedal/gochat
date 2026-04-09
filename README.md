@@ -1,9 +1,9 @@
 # GoChat
 
-[![CI Pipeline](https://github.com/Tyrowin/gochat/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tyrowin/gochat/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/maltemindedal/gochat/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/maltemindedal/gochat/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/Tyrowin/gochat)](https://golang.org/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Tyrowin/gochat)](https://goreportcard.com/report/github.com/Tyrowin/gochat)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/maltemindedal/gochat)](https://golang.org/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maltemindedal/gochat)](https://goreportcard.com/report/github.com/maltemindedal/gochat)
 
 A high-performance, production-ready WebSocket chat server built with Go. GoChat provides real-time multi-client communication with built-in security features, comprehensive testing, and cross-platform support.
 
@@ -25,7 +25,7 @@ A high-performance, production-ready WebSocket chat server built with Go. GoChat
 
 ```bash
 # Clone the repository
-git clone https://github.com/Tyrowin/gochat.git
+git clone https://github.com/maltemindedal/gochat.git
 cd gochat
 
 # Build the server
@@ -130,8 +130,8 @@ GoChat is actively maintained and production-ready. We welcome contributions!
 
 ## Community and Support
 
-- **Issues:** [GitHub Issues](https://github.com/Tyrowin/gochat/issues) - Bug reports and feature requests
-- **Discussions:** [GitHub Discussions](https://github.com/Tyrowin/gochat/discussions) - Questions and community chat
+- **Issues:** [GitHub Issues](https://github.com/maltemindedal/gochat/issues) - Bug reports and feature requests
+- **Discussions:** [GitHub Discussions](https://github.com/maltemindedal/gochat/discussions) - Questions and community chat
 - **Contributing:** See [Contributing Guide](docs/CONTRIBUTING.md)
 - **Security:** See [Security Policy](docs/SECURITY.md#reporting-security-issues)
 

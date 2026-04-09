@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tyrowin/gochat/internal/server"
 	"github.com/gorilla/websocket"
+	"github.com/maltemindedal/gochat/internal/server"
 )
 
 const (

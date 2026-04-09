@@ -24,7 +24,7 @@ This guide covers setting up a development environment, running tests, and contr
 
 ```bash
 # Clone repository
-git clone https://github.com/Tyrowin/gochat.git
+git clone https://github.com/maltemindedal/gochat.git
 cd gochat
 
 # Install development tools
@@ -535,7 +535,6 @@ gochat/
    ```
 
 2. **Make changes**
-
    - Write code
    - Add tests
    - Update documentation

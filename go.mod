@@ -1,4 +1,4 @@
-module github.com/Tyrowin/gochat
+module github.com/maltemindedal/gochat
 
 go 1.25.9
 

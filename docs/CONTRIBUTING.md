@@ -54,7 +54,7 @@ cd gochat
 3. Add upstream remote:
 
 ```bash
-git remote add upstream https://github.com/Tyrowin/gochat.git
+git remote add upstream https://github.com/maltemindedal/gochat.git
 ```
 
 4. Install development tools:
