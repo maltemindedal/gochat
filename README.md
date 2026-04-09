@@ -104,7 +104,7 @@ See [Development Guide](docs/DEVELOPMENT.md#project-structure) for detailed arch
 
 ## Technology Stack
 
-- **Language:** Go 1.25.1+
+- **Language:** Go 1.25.9+
 - **WebSocket Library:** [gorilla/websocket](https://github.com/gorilla/websocket)
 - **Testing:** Go standard library + custom test helpers
 - **CI/CD:** GitHub Actions
