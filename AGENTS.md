@@ -1,53 +1,70 @@
-# GoChat Agent Notes
+# AGENTS.md
 
-## Toolchain
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-- Go version is `1.25.9` in `go.mod`; CI runs on `1.25.9` plus a `1.24.x` / `1.25.x` build matrix.
-- The only direct third-party runtime dependency is `github.com/gorilla/websocket`.
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-## Entry Points
+## 1. Think Before Coding
 
-- Main binary entrypoint is `cmd/server/main.go`.
-- Startup order in `main()`: `server.NewConfigFromEnv()` -> `server.SetConfig()` -> `server.StartHub()` -> `server.SetupRoutes()` -> `server.CreateServer()` -> `server.StartServer()`.
-- Routes are defined in `internal/server/routes.go`: `/` health check, `/ws` WebSocket endpoint, `/test` built-in HTML test page.
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-## Commands
+Before implementing:
 
-- `make build` runs `make fmt` and `make vet` first, then builds `./cmd/server` into `./bin/`.
-- `make build-raw` skips fmt/vet; use it when you only need a fast compile check.
-- `make test` runs `go test -v -race ./...`.
-- Focused suites: `make test-unit`, `make test-integration`.
-- Coverage targets are split: `make test-coverage`, `make test-coverage-unit`, `make test-coverage-integration`.
-- `make ci-local` is the heaviest local verification: `clean fmt vet lint test-coverage security-scan deps-check build`.
-- If you change dependencies, run `go mod tidy`; CI fails if `go.mod` / `go.sum` become dirty after tidy.
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
 
-## Dev Server Gotchas
+## 2. Simplicity First
 
-- `make dev` uses Air with `.air.toml`.
-- Air excludes `test/` and `bin/`, so changing tests will not restart the dev server.
+**Minimum code that solves the problem. Nothing speculative.**
 
-## Runtime Config
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-- Runtime config is read directly from process environment in `internal/server/config.go`; the app does not load `.env` files itself.
-- Relevant env vars: `SERVER_PORT`, `ALLOWED_ORIGINS`, `MAX_MESSAGE_SIZE`, `RATE_LIMIT_BURST`, `RATE_LIMIT_REFILL_INTERVAL`.
-- Default config is strict enough to affect tests: only `http://localhost:8080` is allowed by default unless tests call `server.SetConfig()`.
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## WebSocket Behavior
+## 3. Surgical Changes
 
-- Message format is JSON `{"content":"..."}` (`internal/server/types.go`).
-- The hub broadcasts to all connected clients except the sender.
-- Invalid JSON is ignored, not echoed back.
-- Oversized messages trip the websocket read limit and close the sender connection.
-- Rate-limited messages are dropped and the connection stays open.
-- `Client.writePump()` drains queued messages into the same WebSocket frame separated by newlines; tests that read messages must handle batched payloads.
+**Touch only what you must. Clean up only your own mess.**
 
-## Test Patterns
+When editing existing code:
 
-- Shared test helpers live in `test/testhelpers`.
-- Integration tests that depend on custom origins, size limits, or rate limits update global config with `server.SetConfig(cfg)` and restore defaults with `t.Cleanup(func() { server.SetConfig(nil) })`.
-- For focused runs use standard `go test` flags, e.g. `go test -v -race ./test/integration -run TestWebSocketRateLimiting`.
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
 
-## CI Reality
+When your changes create orphans:
 
-- GitHub Actions in `.github/workflows/ci.yml` runs: `go mod verify`, `go mod download`, `go build -v ./...`, `go test -v -race -coverprofile=coverage.out ./...`, `golangci-lint`, `govulncheck`, and a `go mod tidy` cleanliness check.
-- CI does not currently run `gosec`; `make security-scan` is broader than hosted CI.
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
